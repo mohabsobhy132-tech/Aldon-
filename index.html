@@ -808,6 +808,87 @@
 <div class="toast-message" id="toastMessage"></div>
 
 <script>
+    // ============================================================
+    // 🌍 SHARED GLOBAL CACHE SYSTEM (SheetDB - Cloud Database)
+    // قاعدة البيانات: https://sheetdb.io/api/v1/ahkbgc0bvmjj5
+    // ============================================================
+    const GLOBAL_DB_URL = 'https://sheetdb.io/api/v1/ahkbgc0bvmjj5';
+    
+    const GlobalCache = {
+        // جلب البيانات من القاعدة المشتركة
+        async getFromCloud(cacheKey) {
+            try {
+                const response = await fetch(`${GLOBAL_DB_URL}/search?CacheKey=${encodeURIComponent(cacheKey)}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.length > 0) {
+                        return JSON.parse(data[0].Data || 'null');
+                    }
+                }
+                return null;
+            } catch (e) {
+                console.warn('GlobalCache get error:', e);
+                return null;
+            }
+        },
+        
+        // حفظ البيانات في القاعدة المشتركة
+        async saveToCloud(cacheKey, dataObject) {
+            try {
+                const payload = {
+                    CacheKey: cacheKey,
+                    Title: dataObject.title || cacheKey,
+                    Image: dataObject.img || '',
+                    Data: JSON.stringify(dataObject),
+                    Timestamp: Date.now()
+                };
+                await fetch(GLOBAL_DB_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                return true;
+            } catch (e) {
+                console.warn('GlobalCache save error:', e);
+                return false;
+            }
+        },
+        
+        // استراتيجية ذكية: جرب السحابة أولاً، ثم الكاش المحلي، ثم الـ API
+        async smartFetch(cacheKey, fetchFromAPI) {
+            // 1. Try Global Cloud Cache
+            const cloudData = await this.getFromCloud(cacheKey);
+            if (cloudData && cloudData.items && cloudData.items.length > 0) {
+                console.log('✅ تم التحميل من القاعدة المشتركة:', cacheKey);
+                return cloudData;
+            }
+            
+            // 2. Try Local IndexedDB Cache (موجود في idb)
+            try {
+                const localData = await idb.get(`global_${cacheKey}`);
+                if (localData && localData.items && localData.items.length > 0) {
+                    console.log('💾 تم التحميل من الكاش المحلي:', cacheKey);
+                    // رفعه للسحابة تلقائياً
+                    this.saveToCloud(cacheKey, localData);
+                    return localData;
+                }
+            } catch(e) {}
+            
+            // 3. Fetch from API & Share Globally
+            console.log('🌐 جلب جديد من API ومشاركته مع الجميع:', cacheKey);
+            const apiData = await fetchFromAPI();
+            if (apiData && apiData.items && apiData.items.length > 0) {
+                // حفظ محلي
+                await idb.set(`global_${cacheKey}`, { ...apiData, timestamp: Date.now() });
+                // رفع للعالم
+                this.saveToCloud(cacheKey, apiData);
+                return apiData;
+            }
+            
+            return null;
+        }
+    };
+
     // ---------------------------------------------------------
     // 🌟 THE LEGENDARY CACHE SYSTEM (IndexedDB Offline First) 🌟
     // ---------------------------------------------------------
@@ -1035,8 +1116,7 @@
             }
             const today = new Date().toDateString();
             if(data.lastUpdate !== today) {
-                // كل يوم تتغير: نعم تزيد أو تنقص 1-2%، لا تبقى حوالي 13%
-                const change = Math.floor(Math.random() * 3); // 0, 1, or 2
+                const change = Math.floor(Math.random() * 3);
                 data.yes = Math.max(80, Math.min(92, data.yes + change));
                 data.no = 100 - data.yes;
                 data.lastUpdate = today;
@@ -1137,58 +1217,40 @@
             return null;
         }
 
+        // 🌍 Global Shared YouTube Search
         async function universalYTSearch(title, type, maxResults = 50) {
             const cacheKey = `yt_${type}_${title}`;
-            let cachedObj = await idb.get(cacheKey);
+            
+            // 1. Try Global Cloud Cache
+            const globalData = await GlobalCache.smartFetch(cacheKey, async () => {
+                // API Fetch Function
+                let queries = [];
+                if(type === 'movie') queries = [`فيلم ${title} كامل`, `فيلم ${title} HD`, `${title} full movie`, `${title}`];
+                else if(type === 'tv' || type === 'tvshow') queries = [`مسلسل ${title} الحلقة 1`, `مسلسل ${title} حلقة كاملة`, `برنامج ${title} حلقة`, `${title}`];
+                else if(type === 'singer') queries = [`${title} اغاني`, `${title} official video`, `${title} mix`];
+                else if(type === 'kids') queries = [`${title} كرتون اطفال بالعربي`, `حلقات ${title}`, `${title} full episode kids`];
+                else if(type === 'kids_songs') queries = [`اغاني اطفال ${title}`, `${title} nursery rhymes`];
+                else if(type === 'wrestling') queries = [`${title} WWE full match`, `${title} wrestling highlights`];
+                else if(type === 'highlights') queries = [`${title} match highlights today`, `ملخص مباراة ${title}`];
+                else if(type === 'play') queries = [`مسرحية ${title} كاملة`, `مسرحية ${title}`];
+                else queries = [`${title}`];
 
-            if(cachedObj && isCacheValid(cachedObj.timestamp) && cachedObj.items && cachedObj.items.length > 0) {
-                return { items: cachedObj.items };
-            }
-
-            let queries = [];
-            if(type === 'movie') queries = [`فيلم ${title} كامل`, `فيلم ${title} HD`, `${title} full movie`, `${title}`];
-            else if(type === 'tv' || type === 'tvshow') queries = [`مسلسل ${title} الحلقة 1`, `مسلسل ${title} حلقة كاملة`, `برنامج ${title} حلقة`, `${title}`];
-            else if(type === 'singer') queries = [`${title} اغاني`, `${title} official video`, `${title} mix`];
-            else if(type === 'kids') queries = [`${title} كرتون اطفال بالعربي`, `حلقات ${title}`, `${title} full episode kids`];
-            else if(type === 'kids_songs') queries = [`اغاني اطفال ${title}`, `${title} nursery rhymes`];
-            else if(type === 'wrestling') queries = [`${title} WWE full match`, `${title} wrestling highlights`];
-            else if(type === 'highlights') queries = [`${title} match highlights today`, `ملخص مباراة ${title}`];
-            else if(type === 'play') queries = [`مسرحية ${title} كاملة`, `مسرحية ${title}`];
-            else queries = [`${title}`];
-
-            let allItems = [];
-            let networkFailed = false;
-
-            for(let q of queries) {
-                const data = await fetchYTSmart(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q=${encodeURIComponent(q)}&type=video`);
-                if(data && data.items) {
-                    allItems.push(...data.items);
-                } else {
-                    networkFailed = true;
+                let allItems = [];
+                for(let q of queries) {
+                    const data = await fetchYTSmart(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q=${encodeURIComponent(q)}&type=video`);
+                    if(data && data.items) {
+                        allItems.push(...data.items);
+                    }
                 }
+                let unique = Array.from(new Map(allItems.map(v => [v.id.videoId, v])).values());
+                return { items: unique.slice(0, maxResults) };
+            });
+            
+            if(globalData && globalData.items && globalData.items.length > 0) {
+                return { items: globalData.items };
             }
-
-            let unique = Array.from(new Map(allItems.map(v => [v.id.videoId, v])).values());
-            if(unique.length === 0 && !networkFailed && type !== 'fallback') {
-               const fallbackData = await universalYTSearch(title, 'fallback', 15);
-               unique = fallbackData.items || [];
-            }
-
-            if(unique.length === 0 && !networkFailed && type === 'fallback') {
-               const fallbackData2 = await fetchYTSmart(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=10&q=${encodeURIComponent(title)}&type=video`);
-               if(fallbackData2 && fallbackData2.items) unique = fallbackData2.items;
-            }
-
-            if(unique.length === 0 && cachedObj && cachedObj.items) {
-                return { items: cachedObj.items };
-            }
-
-            const finalItems = unique.slice(0, maxResults);
-            if (finalItems.length > 0) {
-                await idb.set(cacheKey, { items: finalItems, timestamp: Date.now() });
-            }
-
-            return { items: finalItems };
+            
+            return { items: [] };
         }
 
         async function fetchYTSectionDynamic(query, type, contId) {
@@ -1818,20 +1880,29 @@
         }
         window.skipVid = s => { const v=document.getElementById('n-video'); if(v && v.duration !== Infinity) v.currentTime += s; };
         window.toggleAudio = () => { const v=document.getElementById('n-video'); if(v) v.paused? v.play() : v.pause(); };
+        
+        // 🌟 زر التدوير الاحترافي (Force Landscape Fullscreen)
         window.makeFullscreen = () => {
             const container = document.getElementById('vid-container');
             const fullscreenEl = document.fullscreenElement || document.webkitFullscreenElement;
             if (!fullscreenEl) {
+                // Lock Screen Orientation to Landscape
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(e => console.warn('Screen orientation lock not supported', e));
+                }
+                // Request Fullscreen
                 if (container.requestFullscreen) {
                     container.requestFullscreen();
                 } else if (container.webkitRequestFullscreen) {
                     container.webkitRequestFullscreen();
-                }
-                // Lock to landscape
-                if (screen.orientation && screen.orientation.lock) {
-                    screen.orientation.lock('landscape').catch(e => console.warn('Screen lock error', e));
+                } else if (container.msRequestFullscreen) {
+                    container.msRequestFullscreen();
                 }
             } else {
+                // Unlock and exit
+                if (screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock();
+                }
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
                 } else if (document.webkitExitFullscreen) {
@@ -1840,24 +1911,7 @@
             }
         };
 
-        // Detect orientation change to auto fullscreen
-        window.addEventListener('orientationchange', () => {
-            const proPlayer = document.getElementById('pro-player');
-            if (proPlayer.style.display === 'flex') {
-                if (window.orientation === 90 || window.orientation === -90) {
-                    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-                        makeFullscreen();
-                    }
-                } else {
-                    if (document.fullscreenElement || document.webkitFullscreenElement) {
-                        if (document.exitFullscreen) document.exitFullscreen();
-                        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-                    }
-                }
-            }
-        });
-
-        // Video Object Fit fix
+        // Fullscreen change listener for UI adjustments
         document.addEventListener('fullscreenchange', () => {
             const v = document.getElementById('n-video');
             const y = document.getElementById('y-iframe');
@@ -2186,7 +2240,6 @@
             exitFullscreen();
         } else {
             enterFullscreen();
-            // Lock to landscape
             if (screen.orientation && screen.orientation.lock) {
                 screen.orientation.lock('landscape').catch(e => console.warn('Screen lock error', e));
             }
@@ -2432,4 +2485,4 @@
   })();
 </script>
 </body>
-                          </html>
+    </html>

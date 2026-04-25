@@ -5,19 +5,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v3
+      - name: Build Android APK
+        uses: tttstudios/html-to-apk-action@v1.0.0
         with:
-          java-version: '11'
-          distribution: 'temurin'
+          app_name: "ALDON-PRO"
+          bundle_id: "com.mohab.aldon"
+          web_dir: "."
 
-      - name: Install Bubblewrap
-        run: npm install -g @bubblewrap/cli
-
-      - name: Build APK
-        run: |
-          echo "Building your APK now..."
-          # هذه الأداة ستقوم بتحويل موقعك لتطبيق أندرويد احترافي
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ALDON-APK
+          path: ./*.apk

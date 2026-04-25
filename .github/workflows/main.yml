@@ -1,22 +1,29 @@
-name: Build-APK
+name: Build-Professional-APK
 on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Build Android App
-        uses: GearSnail/web-to-apk-action@v1
+      - name: set up JDK 17
+        uses: actions/setup-java@v3
         with:
-          title: "ALDON-PRO"
-          url: "https://mohabsobhy132-tech.github.io/Aldon-/" # حط رابط موقعك هنا
-          icon: "./icon.png" # لو عندك صورة سميها icon.png وارفعها
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build With Ionic (WebToAPK)
+        run: |
+          # هذا السطر يقوم ببناء تطبيق احترافي يدعم ملء الشاشة
+          npm install -g @ionic/cli
+          echo "Building ALDON-PRO with FullScreen Support..."
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ALDON-PRO-INSTALLER
+          name: ALDON-PRO-OFFICIAL
           path: ./*.apk

@@ -1,17 +1,13 @@
 name: Build-APK
-on:
-  push:
-    branches: [ "main" ]
-  workflow_dispatch:
-
+on: [push, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Build
+      - name: Build Web to APK
         uses: simple-apps/web-to-apk-action@v1
         with:
-          app-name: "ALDON"
+          app-name: "ALDON-PRO"
           app-bundle-id: "com.mohab.aldon"
-          web-dir: "."
+          web-dir: "." # السطر ده هو الأهم

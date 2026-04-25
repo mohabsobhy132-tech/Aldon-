@@ -7,6 +7,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#000000">
     <title>ALdon | Premium Entertainment</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Tajawal:wght@500;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -215,6 +217,8 @@
         }
         #vid-container { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; background: #000; }
         video, iframe { width: 100%; height: 100%; border: none; object-fit: contain; }
+        #vid-container:fullscreen video, #vid-container:fullscreen iframe,
+        #vid-container:-webkit-full-screen video, #vid-container:-webkit-full-screen iframe { object-fit: cover; }
 
         #quran-ui { display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 5010; width: 100%; height: 100%; background: radial-gradient(circle at center, #022C22 0%, #020617 80%); }
         .quran-logo-container { position: relative; width: 280px; height: 280px; display: flex; justify-content: center; align-items: center; margin-bottom: 30px; }
@@ -771,7 +775,7 @@
     </div>
     <div id="vid-container">
         <video id="n-video" controls playsinline></video>
-        <iframe id="y-iframe" allow="autoplay; fullscreen"></iframe>
+        <iframe id="y-iframe" allow="autoplay; fullscreen" allowfullscreen></iframe>
 
         <div id="quran-ui">
             <div class="quran-close-btn" onclick="closePlayer()"><i class="fas fa-times"></i></div>
@@ -1743,6 +1747,7 @@
                 y.style.display='block';
                 document.getElementById('f-btn').style.display='flex';
                 y.src=url;
+                y.setAttribute('allowfullscreen', 'true');
             } else if(type==='audio') {
                 aui.style.display='flex';
                 document.getElementById('f-btn').style.display='none';
@@ -1769,12 +1774,12 @@
         };
 
         window.closePlayer = () => {
+            if(document.fullscreenElement) document.exitFullscreen();
             document.getElementById('pro-player').style.display='none';
             document.getElementById('y-iframe').src='';
             const v = document.getElementById('n-video');
             v.pause(); v.src = '';
             document.getElementById('audio-img').classList.remove('playing-spin');
-            if(document.fullscreenElement) document.exitFullscreen();
         };
 
         function setupQuranControls() {
@@ -1813,9 +1818,59 @@
         }
         window.skipVid = s => { const v=document.getElementById('n-video'); if(v && v.duration !== Infinity) v.currentTime += s; };
         window.toggleAudio = () => { const v=document.getElementById('n-video'); if(v) v.paused? v.play() : v.pause(); };
-        window.makeFullscreen = () => { const c = document.getElementById('vid-container'); if(!document.fullscreenElement) c.requestFullscreen(); else document.exitFullscreen(); };
+        window.makeFullscreen = () => {
+            const container = document.getElementById('vid-container');
+            const fullscreenEl = document.fullscreenElement || document.webkitFullscreenElement;
+            if (!fullscreenEl) {
+                if (container.requestFullscreen) {
+                    container.requestFullscreen();
+                } else if (container.webkitRequestFullscreen) {
+                    container.webkitRequestFullscreen();
+                }
+                // Lock to landscape
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(e => console.warn('Screen lock error', e));
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            }
+        };
 
-        // 🌟 Ultimate Hybrid Special Shows Fetcher (Seasons vs Single Entities) 🌟
+        // Detect orientation change to auto fullscreen
+        window.addEventListener('orientationchange', () => {
+            const proPlayer = document.getElementById('pro-player');
+            if (proPlayer.style.display === 'flex') {
+                if (window.orientation === 90 || window.orientation === -90) {
+                    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                        makeFullscreen();
+                    }
+                } else {
+                    if (document.fullscreenElement || document.webkitFullscreenElement) {
+                        if (document.exitFullscreen) document.exitFullscreen();
+                        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                    }
+                }
+            }
+        });
+
+        // Video Object Fit fix
+        document.addEventListener('fullscreenchange', () => {
+            const v = document.getElementById('n-video');
+            const y = document.getElementById('y-iframe');
+            if (document.fullscreenElement) {
+                if(v) v.style.objectFit = 'cover';
+                if(y) y.style.objectFit = 'cover';
+            } else {
+                if(v) v.style.objectFit = 'contain';
+                if(y) y.style.objectFit = 'contain';
+            }
+        });
+
+        // 🌟 Ultimate Hybrid Special Shows Fetcher 🌟
         async function loadSpecialShows() {
             const container = document.getElementById('ultimate-shows-container');
             if(!container) return;
@@ -2126,7 +2181,17 @@
         vibrate(5);
       } catch(e) {}
     }
-    function toggleFullscreen() { isFullscreen ? exitFullscreen() : enterFullscreen(); }
+    function toggleFullscreen() {
+        if (isFullscreen) {
+            exitFullscreen();
+        } else {
+            enterFullscreen();
+            // Lock to landscape
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(e => console.warn('Screen lock error', e));
+            }
+        }
+    }
     document.addEventListener('fullscreenchange', () => {
       if (!document.fullscreenElement && !document.webkitFullscreenElement && isFullscreen) {
         isFullscreen = false;
@@ -2367,4 +2432,4 @@
   })();
 </script>
 </body>
-</html>
+                          </html>

@@ -13,36 +13,44 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Setup Java
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
-          java-version: '21' # هنا تم التحديث للإصدار 21
+          java-version: '21'
           distribution: 'temurin'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
 
       - name: Build Official Android App
         run: |
-          echo "Preparing files..."
+          echo "Preparing folders..."
           mkdir -p www
-          rsync -av --exclude='www' --exclude='.github' --exclude='.git' ./ www/
+          # نقل الملفات لمجلد الويب
+          cp -r ./* www/ || true
           
-          echo "Installing Official Tools..."
+          echo "Installing Capacitor..."
           npm init -y
           npm install @capacitor/core @capacitor/cli @capacitor/android
           
-          echo "Initializing Android Project..."
-          npx cap init "ALDON-PRO" "com.mohab.aldon" --web-dir www
+          echo "Configuring App..."
+          # إنشاء ملف الإعدادات برمجياً لضمان عدم وجود أخطاء
+          cat <<EOF > capacitor.config.json
+          {
+            "appId": "com.mohab.aldon",
+            "appName": "ALDON-PRO",
+            "webDir": "www",
+            "bundledWebRuntime": false,
+            "server": { "androidScheme": "https" }
+          }
+          EOF
+
           npx cap add android
           
-          echo "Building the final APK..."
+          echo "Building the APK..."
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload Legendary APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ALDON-PRO-APK
+          name: ALDON-PRO-FINAL-APK
           path: android/app/build/outputs/apk/debug/*.apk

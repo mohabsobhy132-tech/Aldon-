@@ -14,4 +14,3 @@ jobs:
           app-name: "ALDON PRO"
           app-bundle-id: "com.mohab.aldon"
           web-dir: "."
-          fullscreen: true

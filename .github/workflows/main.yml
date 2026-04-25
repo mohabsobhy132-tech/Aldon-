@@ -1,4 +1,4 @@
-name: Build-Custom-Icon-No-Splash
+name: Build-ALdon-Legendary-APK
 on: [push, workflow_dispatch]
 
 jobs:
@@ -8,47 +8,42 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Java & Node
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
 
-      - name: Install Tools
-        run: npm install -g cordova
-
-      - name: Create & Configure App
+      - name: Build APK (High Performance)
         run: |
-          cordova create aldon-app com.mohab.aldon "ALDON-PRO"
+          npm install -g cordova
+          # إنشاء التطبيق باسم ALdon
+          cordova create aldon-app com.mohab.aldon "ALdon"
+          
+          # نقل الكود الجديد بتاعك لمجلد التطبيق
           rm -rf aldon-app/www/*
           cp -r ./* aldon-app/www/ || true
           
           cd aldon-app
           cordova platform add android
           
-          # إضافة بلوجن التحكم في الشريط العلوي
+          # إضافة بلوجنات "الاحترافية"
           cordova plugin add cordova-plugin-statusbar
+          cordova plugin add cordova-plugin-navigationbar-color
           
-          # تعديل الإعدادات (الشريط أسود + إلغاء شاشة البداية)
-          # 1. جعل الشريط أسود
-          sed -i '/<\/widget>/i <preference name="StatusBarBackgroundColor" value="#000000" />' config.xml
-          sed -i '/<\/widget>/i <preference name="StatusBarStyle" value="lightcontent" />' config.xml
-          
-          # 2. إلغاء اللوجو عند الفتح (اجعل وقت الانتظار صفر)
+          # تعديل الإعدادات (ملء الشاشة + إلغاء شاشة البداية + السرعة)
+          sed -i '/<\/widget>/i <preference name="Fullscreen" value="true" />' config.xml
+          sed -i '/<\/widget>/i <preference name="StatusBarOverlaysWebView" value="true" />' config.xml
           sed -i '/<\/widget>/i <preference name="SplashScreenDelay" value="0" />' config.xml
           sed -i '/<\/widget>/i <preference name="ShowSplashScreen" value="false" />' config.xml
-          
-          # 3. ربط الأيقونة الخارجية اللي إنت رفعتها
+          sed -i '/<\/widget>/i <preference name="Orientation" value="default" />' config.xml
           sed -i '/<\/widget>/i <icon src="../icon.png" />' config.xml
           
-          echo "Building APK..."
+          # أمر البناء
           cordova build android --debug
 
-      - name: Upload Final APK
+      - name: Upload ALdon APK
         uses: actions/upload-artifact@v4
         with:
-          name: ALDON-PRO-CUSTOM
+          name: ALdon-Official-APK
           path: aldon-app/platforms/android/app/build/outputs/apk/debug/*.apk

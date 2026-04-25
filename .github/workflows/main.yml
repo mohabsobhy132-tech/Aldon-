@@ -1,4 +1,4 @@
-name: Build-Legendary-APK
+name: Build-Custom-Icon-No-Splash
 on: [push, workflow_dispatch]
 
 jobs:
@@ -8,30 +8,47 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup Java & Node
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      - name: Build Official APK
+      - name: Install Tools
+        run: npm install -g cordova
+
+      - name: Create & Configure App
         run: |
-          npm install -g cordova
-          # إنشاء المشروع بدون أسئلة تفاعلية
           cordova create aldon-app com.mohab.aldon "ALDON-PRO"
-          
-          # نقل ملفاتك الـ HTML جوه المشروع
           rm -rf aldon-app/www/*
           cp -r ./* aldon-app/www/ || true
           
           cd aldon-app
           cordova platform add android
           
-          # أمر البناء النهائي
+          # إضافة بلوجن التحكم في الشريط العلوي
+          cordova plugin add cordova-plugin-statusbar
+          
+          # تعديل الإعدادات (الشريط أسود + إلغاء شاشة البداية)
+          # 1. جعل الشريط أسود
+          sed -i '/<\/widget>/i <preference name="StatusBarBackgroundColor" value="#000000" />' config.xml
+          sed -i '/<\/widget>/i <preference name="StatusBarStyle" value="lightcontent" />' config.xml
+          
+          # 2. إلغاء اللوجو عند الفتح (اجعل وقت الانتظار صفر)
+          sed -i '/<\/widget>/i <preference name="SplashScreenDelay" value="0" />' config.xml
+          sed -i '/<\/widget>/i <preference name="ShowSplashScreen" value="false" />' config.xml
+          
+          # 3. ربط الأيقونة الخارجية اللي إنت رفعتها
+          sed -i '/<\/widget>/i <icon src="../icon.png" />' config.xml
+          
+          echo "Building APK..."
           cordova build android --debug
 
-      - name: Upload APK
+      - name: Upload Final APK
         uses: actions/upload-artifact@v4
         with:
-          name: ALDON-PRO-FINAL
+          name: ALDON-PRO-CUSTOM
           path: aldon-app/platforms/android/app/build/outputs/apk/debug/*.apk

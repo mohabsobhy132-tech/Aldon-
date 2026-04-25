@@ -1,13 +1,18 @@
 name: Build-APK
 on: [push, workflow_dispatch]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Build Web to APK
-        uses: simple-apps/web-to-apk-action@v1
+
+      - name: Install dependencies
+        run: echo "Starting build..."
+
+      - name: Create APK
+        uses: jrod95/web-to-apk-action@v1.1
         with:
           app-name: "ALDON-PRO"
           app-bundle-id: "com.mohab.aldon"
-          web-dir: "." # السطر ده هو الأهم
+          web-dir: "."

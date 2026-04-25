@@ -1,4 +1,4 @@
-name: Build-Professional-APK
+name: Build-Legendary-APK
 on: [push, workflow_dispatch]
 
 jobs:
@@ -8,16 +8,41 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Build APK (Fullscreen Mode)
-        uses: valeriospagnoli/web-to-apk-action@v1.1
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          app-name: "ALDON-PRO"
-          # تأكد إن الرابط ده هو رابط موقعك على جيت هاب
-          app-url: "https://mohabsobhy132-tech.github.io/Aldon-/" 
-          display-mode: "fullscreen"
+          node-version: '20'
 
-      - name: Upload APK Artifact
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build Official Android App
+        run: |
+          echo "Preparing files..."
+          mkdir -p www
+          rsync -av --exclude='www' --exclude='.github' --exclude='.git' ./ www/
+          
+          echo "Installing Official Tools..."
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          
+          echo "Initializing Android Project..."
+          npx cap init "ALDON-PRO" "com.mohab.aldon" --web-dir www
+          npx cap add android
+          
+          echo "Building the final APK..."
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload Legendary APK
         uses: actions/upload-artifact@v4
         with:
-          name: ALDON-PRO-OFFICIAL-APK
-          path: ./*.apk
+          name: ALDON-PRO-APK
+          path: android/app/build/outputs/apk/debug/*.apk

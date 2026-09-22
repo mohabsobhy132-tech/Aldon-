@@ -23,9 +23,12 @@ jobs:
           # إنشاء التطبيق باسم ALdon
           cordova create aldon-app com.mohab.aldon "ALdon"
           
-          # تنظيف ونقل الكود الجديد (تأكد إن الكود بتاعك في المجلد الرئيسي)
+          # تنظيف ونقل الكود إلى مجلد www
           rm -rf aldon-app/www/*
           cp -r ./* aldon-app/www/ || true
+          
+          # نسخ ملف الأيقونة إلى جذر مشروع Cordova لضمان استخدامه
+          cp icon.png aldon-app/icon.png || true
           
           cd aldon-app
           cordova platform add android
@@ -42,8 +45,8 @@ jobs:
           sed -i '/<\/widget>/i <preference name="loadUrlTimeoutValue" value="60000" />' config.xml
           sed -i '/<\/widget>/i <preference name="DisallowOverscroll" value="true" />' config.xml
           
-          # ربط الأيقونة الخارجية (تأكد من وجود ملف icon.png)
-          sed -i '/<\/widget>/i <icon src="../icon.png" />' config.xml
+          # ربط الأيقونة بشكل صحيح داخل config.xml
+          sed -i '/<\/widget>/i <icon src="icon.png" />' config.xml
           
           cordova build android --debug
 
